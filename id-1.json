@@ -1,0 +1,19 @@
+{
+ "collections": {
+ "id-1": {
+ "documents": {
+ "id-1": {
+ "fields": {
+ "id-1": {
+ "type": "string",
+ "value": "setup.exe"
+ }
+ }
+ }
+ },
+ "config": {
+ "cgg": "id-1"
+ }
+ }
+ }
+ }

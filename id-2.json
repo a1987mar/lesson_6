@@ -1,0 +1,19 @@
+{
+ "collections": {
+ "id-2": {
+ "documents": {
+ "id-2": {
+ "fields": {
+ "id-2": {
+ "type": "string",
+ "value": "main.go"
+ }
+ }
+ }
+ },
+ "config": {
+ "cgg": "id-2"
+ }
+ }
+ }
+ }
