@@ -1,9 +1,9 @@
 package users
 
 import (
-	log "github.com/sirupsen/logrus"
 	"lesson4/pkg/documentstore"
 	"lesson4/pkg/err"
+	"log/slog"
 )
 
 type User struct {
@@ -27,7 +27,7 @@ func NewService() *Service {
 func (s *Service) CreateUser(id, name string, cfg documentstore.CollectionConfig, doc *documentstore.Document) (*User, error) {
 	user := User{ID: id, Name: name, Cfg: cfg}
 	if _, exists := s.users[user.ID]; exists {
-		log.Print("user not added")
+		slog.Info("user not added")
 		return nil, err.ErrCreatedUser
 	}
 
@@ -36,7 +36,7 @@ func (s *Service) CreateUser(id, name string, cfg documentstore.CollectionConfig
 	getCol, _ := s.coll.GetCollection(id)
 	getCol.Put(*doc)
 	s.coll.DumpToFile(id)
-	log.Print("user added - ", name)
+	slog.Info("user added - " + name)
 	return &user, nil
 }
 
@@ -55,14 +55,14 @@ func (s *Service) GetUser(userID string) (*User, error) {
 	if kUser, ok := s.users[userID]; ok {
 		return &kUser, nil
 	}
-	log.Info("user not found -%s", userID)
+	slog.Info("user not found -%s", userID)
 	return nil, err.ErrNotFound
 }
 
 func (s *Service) DeleteUser(userID string) error {
 	if _, ok := s.users[userID]; ok {
 		delete(s.users, userID)
-		log.Info("deleted user - ", userID)
+		slog.Info("deleted user - ", userID)
 		return nil
 	}
 	return err.ErrNotFound

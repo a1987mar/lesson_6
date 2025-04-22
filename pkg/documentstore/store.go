@@ -3,48 +3,63 @@ package documentstore
 import (
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"lesson4/pkg/err"
+	"log/slog"
 	"os"
+	"strings"
 )
 
 type Store struct {
-	Collections map[string]*Collection `json:"collections,omitempty"`
+	collections map[string]*Collection `json:"collections,omitempty"`
 }
 
 func NewStore() *Store {
 	return &Store{
-		Collections: make(map[string]*Collection),
+		collections: make(map[string]*Collection),
+	}
+}
+
+type DTOStore struct {
+	Collections map[string]DTOCollection `json:"collections"`
+}
+
+func (s *Store) ToDto() DTOStore {
+	dtoCollections := make(map[string]DTOCollection, len(s.collections))
+	for name, coll := range s.collections {
+		dtoCollections[name] = coll.ToDto()
+	}
+	return DTOStore{
+		Collections: dtoCollections,
 	}
 }
 
 func (s *Store) CreateCollection(name string, cfg *CollectionConfig) (error, *Collection) {
 	// Створюємо нову колекцію і повертаємо `true` якщо колекція була створена
 	// Якщо ж колекція вже створеня то повертаємо `false` та nil
-	if _, exists := s.Collections[name]; exists {
-		log.Info("collection already exists")
+	if _, exists := s.collections[name]; exists {
+		slog.Info("collection already exists")
 		return err.ErrCollectionAlreadyExists, nil
 	}
 	coll := &Collection{
-		Documents: make(map[string]Document),
-		Config:    *cfg}
-	s.Collections[name] = coll
-	log.Info("collection added - ", coll.Config.PrimaryKey)
+		documents: make(map[string]Document),
+		config:    *cfg}
+	s.collections[name] = coll
+	slog.Info("collection added - " + coll.config.PrimaryKey)
 	return nil, coll
 }
 
 func (s *Store) GetCollection(name string) (*Collection, error) {
-	if colect, ok := s.Collections[name]; ok {
+	if colect, ok := s.collections[name]; ok {
 		return colect, nil
 	}
-	log.Infof("collection not found - %s", name)
+	slog.Info("collection not found - " + name)
 	return nil, err.ErrCollectionNotFound
 }
 
 func (s *Store) DeleteCollection(name string) bool {
-	if _, ok := s.Collections[name]; ok {
-		delete(s.Collections, name)
-		log.Info("collection delete - ", name)
+	if _, ok := s.collections[name]; ok {
+		delete(s.collections, name)
+		slog.Info("collection delete - " + name)
 		return true
 	}
 	return false
@@ -53,21 +68,26 @@ func (s *Store) DeleteCollection(name string) bool {
 func NewStoreFromDump(dump []byte) (*Store, error) {
 	// Функція повинна створити та проініціалізувати новий `Store`
 	// зі всіма колекціями та даними з вхідного дампу.
-	var s Store
-	if err := json.Unmarshal(dump, &s); err != nil {
-		log.Warning("")
+	var dto DTOStore
+	if err := json.Unmarshal(dump, &dto); err != nil {
+
 		return nil, err
 	}
-	if len(s.Collections) == 0 {
-		log.Warning("collection not added")
+	s := NewStore()
+	if err := json.Unmarshal(dump, &s); err != nil {
+		return nil, err
+	}
+	if len(s.collections) == 0 {
+		slog.Info("collection not added")
 		return nil, err.ErrNotFound
 	}
-	return &s, nil
+	return s, nil
 }
 
 func (s *Store) Dump() ([]byte, error) {
 	// Методи повинен віддати дамп нашого стору в який включені дані про колекції та документ
-	sToJson, err := json.MarshalIndent(s, " ", "")
+	dto := s.ToDto()
+	sToJson, err := json.MarshalIndent(dto, " ", "")
 	if err != nil {
 		return nil, err
 	}
@@ -80,23 +100,34 @@ func (s *Store) Dump() ([]byte, error) {
 
 func NewStoreFromFile(filename string) (*Store, error) {
 	// Робить те ж саме що і функція `NewStoreFromDump`, але сам дамп має діставатись з файлу
-	f := fmt.Sprintf("%s.json", filename)
-	dump, err := os.ReadFile(f)
+
+	fileString := strings.Builder{}
+	fileString.WriteString(filename + ".json")
+
+	dump, err := os.ReadFile(fileString.String())
 	if err != nil {
-		log.Error("file not read")
+		slog.Error("file not read")
 		return nil, err
 	}
-	log.Infof("file read successfully %s", f)
-	var s Store
-	if err := json.Unmarshal(dump, &s); err != nil {
+	slog.Info("file read successfully " + fileString.String())
+	s := NewStore()
+	var dto DTOStore
+	if err := json.Unmarshal(dump, &dto); err != nil {
 
 		return nil, err
 	}
-	if len(s.Collections) == 0 {
-		log.Warning("no collections found in store from file")
+	for name, dtoColl := range dto.Collections {
+		coll := &Collection{
+			documents: dtoColl.Documents,
+			config:    dtoColl.Config,
+		}
+		s.collections[name] = coll
+	}
+	if len(s.collections) == 0 {
+		slog.Error("no collections found in store from file")
 		return nil, fmt.Errorf("no collections in store")
 	}
-	return &s, nil
+	return s, nil
 }
 
 func (s *Store) DumpToFile(filename string) error {
@@ -106,7 +137,9 @@ func (s *Store) DumpToFile(filename string) error {
 
 		fmt.Println(err)
 	}
-	f := fmt.Sprintf("%s.json", filename)
 
-	return os.WriteFile(f, sDump, 0644)
+	fileString := strings.Builder{}
+	fileString.WriteString(filename + ".json")
+
+	return os.WriteFile(fileString.String(), sDump, 0644)
 }

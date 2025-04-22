@@ -2,7 +2,7 @@ package documentstore
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
+	"log/slog"
 	"reflect"
 )
 
@@ -62,6 +62,12 @@ func MarshalDocument(input interface{}) (*Document, error) {
 		case reflect.Bool:
 			FieldType = DocumentFieldTypeBool
 			FieldValue = val.Bool()
+		case reflect.Slice:
+			FieldType = DocumentFieldTypeArray
+			FieldValue = val.Interface()
+		case reflect.Struct:
+			FieldType = DocumentFieldTypeObject
+			FieldValue = val.Interface()
 		default:
 			continue
 		}
@@ -80,7 +86,7 @@ func UnmarshalDocument(doc *Document, output any) error {
 	v := reflect.ValueOf(output)
 
 	if v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
-		log.Error("document bad struct")
+		slog.Error("document bad struct")
 		return fmt.Errorf("output not struct")
 	}
 
@@ -101,11 +107,11 @@ func UnmarshalDocument(doc *Document, output any) error {
 			if valR.Type().AssignableTo(fValue.Type()) {
 				fValue.Set(valR)
 			} else {
-				log.Info("document not Unmarshal")
+				slog.Info("document not Unmarshal")
 				return fmt.Errorf("тип не співпадає")
 			}
 		}
 	}
-	log.Info("document Unmarshal")
+	slog.Info("document Unmarshal")
 	return nil
 }
